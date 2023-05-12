@@ -1,0 +1,185 @@
+DROP TABLE IF EXISTS clients CASCADE;
+DROP TABLE IF EXISTS investments CASCADE;
+DROP TABLE IF EXISTS loans CASCADE;
+DROP TABLE IF EXISTS accounts CASCADE;
+DROP TABLE IF EXISTS transfers CASCADE;
+DROP TABLE IF EXISTS bank_branches CASCADE;
+DROP TABLE IF EXISTS deposits_withdraws CASCADE;
+
+
+CREATE TABLE clients (
+
+client_id serial PRIMARY KEY, 
+first_name VARCHAR(20) NOT NULL,
+middle_name VARCHAR(20) NOT NULL,
+last_name VARCHAR(20) NOT NULL,
+passport_serial int NOT NULL,
+passport_number int NOT NULL,
+citizenship VARCHAR(70) NOT NULL,
+adress VARCHAR(100) NOT NULL
+
+);
+
+CREATE TABLE accounts (
+
+account_id serial PRIMARY KEY, 
+client_id int NOT NULL REFERENCES clients(client_id),
+account_type VARCHAR(20) NOT NULL,
+created_on TIMESTAMP NOT NULL,
+account_money real NOT NULL,
+currency_type VARCHAR(5) NOT NULL
+
+);
+
+CREATE TABLE investments (
+investment_id serial PRIMARY KEY, 
+account_id int NOT NULL REFERENCES accounts(account_id),
+investment_type VARCHAR(20) NOT NULL,
+invested_money real NOT NULL,
+currency_type VARCHAR(5) NOT NULL,
+percent real NOT NULL,
+investment_start date NOT NULL,
+investment_end date NOT NULL
+
+);
+
+CREATE TABLE loans (
+
+loan_id serial PRIMARY KEY, 
+account_id int NOT NULL REFERENCES accounts(account_id),
+loan_type VARCHAR(20) NOT NULL,
+loan_money real NOT NULL,
+percent real NOT NULL,
+currency_type VARCHAR(5) NOT NULL,
+loan_start date NOT NULL,
+loan_end date NOT NULL
+
+);
+
+
+
+CREATE TABLE transfers (
+
+transfer_id serial PRIMARY KEY, 
+account_id_from int NOT NULL REFERENCES accounts(account_id), 
+account_id_to int NOT NULL REFERENCES accounts(account_id), 
+transferred_money real NOT NULL,
+transfer_date TIMESTAMP NOT NULL,
+currency_type VARCHAR(5) NOT NULL
+
+);
+
+CREATE TABLE bank_branches (
+
+branch_id serial PRIMARY KEY, 
+adress VARCHAR(100) NOT NULL,
+postal_index int NOT NULL
+
+);
+
+CREATE TABLE deposits_withdraws (
+
+dep_withd_id serial PRIMARY KEY, 
+account_id int NOT NULL REFERENCES accounts(account_id), 
+transferred_money real NOT NULL,
+bank_branch_id int NOT NULL REFERENCES bank_branches(branch_id),
+transfer_date TIMESTAMP NOT NULL,
+currency_type VARCHAR(5) NOT NULL,
+deposit_or_withdrawal bool NOT NULL
+
+);
+
+
+
+
+BEGIN;
+ALTER TABLE deposits_withdraws
+ADD COLUMN deposit_or_withdrawal bool NOT NULL DEFAULT RANDOM()::INT::BOOLEAN;
+--COMMIT;
+
+
+
+
+
+
+
+
+Queries:
+
+SELECT DISTINCT ON (cl.client_id) cl.*
+FROM accounts AS acc1,transfers AS tr,
+accounts AS acc2,clients AS cl
+WHERE acc1.client_id = 10000
+AND acc1.account_id = tr.account_id_from
+AND tr.account_id_to = acc2.account_id
+AND acc2.client_id = cl.client_id
+ORDER BY cl.client_id
+LIMIT 100
+
+
+SELECT SUM(ROUND(CAST((1+(l.percent)/100)*l.loan_money AS numeric),2))
+FROM accounts AS acc, loans AS l
+WHERE acc.account_id = 10006
+AND acc.account_id = l.account_id
+
+-------------------------------------------------------------------------количество денег пришедших на аккаунты клиента за месяц
+
+
+
+средние расходы
+
+SELECT ROUND(CAST(SUM(withd.transferred_money)/('2023-02-28'::date - '2010-02-01'::date) AS numeric ),2)
+FROM accounts AS acc1, deposits_withdraws AS withd
+WHERE acc1.client_id = 10006
+AND withd.account_id = acc1.account_id
+AND withd.deposit_or_withdrawal = false
+AND withd.transfer_date BETWEEN '2010-02-01' AND '2023-02-28'
+
+количество операций в каждом отделении банка за период
+
+SELECT COUNT(*),bank_branches.* FROM deposits_withdraws,bank_branches
+WHERE deposits_withdraws.bank_branch_id = bank_branches.branch_id
+AND deposits_withdraws.transfer_date BETWEEN '2010-02-01' AND '2013-02-28'
+GROUP BY bank_branches.branch_id
+ORDER BY COUNT(*)
+LIMIT 50
+
+сколько людей переводит клиенту //за последний год
+
+SELECT COUNT(DISTINCT acc2.account_id)
+FROM accounts AS acc1,transfers AS tr,
+accounts AS acc2
+WHERE acc1.client_id = 16464
+AND acc1.account_id = tr.account_id_to
+AND tr.account_id_from = acc2.account_id
+
+все банки к которым ходит клиент
+
+SELECT DISTINCT ON (bank_branches.branch_id) bank_branches.* FROM bank_branches, clients, accounts, deposits_withdraws
+WHERE bank_branches.branch_id = deposits_withdraws.bank_branch_id
+AND	deposits_withdraws.account_id = accounts.account_id
+AND accounts.client_id = 20
+LIMIT 50
+
++% по инвестициям
+
+SELECT SUM(ROUND(CAST(((l.percent)/100)*l.invested_money AS numeric),2))
+FROM accounts AS acc, investments AS l
+WHERE acc.account_id = 42345
+AND acc.account_id = l.account_id
+
+//обналичил через отделение банка
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
